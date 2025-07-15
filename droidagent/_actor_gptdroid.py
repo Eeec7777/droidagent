@@ -4,8 +4,6 @@ import logging
 import time
 import copy
 
-import openai
-
 from .app_state import AppState
 from .config import agent_config
 from .utils.logger import Logger
@@ -55,9 +53,9 @@ class GPTDroidActor():
             try:
                 original_prompt = copy.deepcopy(self.current_prompt)
                 action = prompt_next_action(self.memory, error_message=None, full_prompt=self.current_prompt, contain_feedback=contain_feedback)
-            except (openai.BadRequestError) as e:
-                # exceed max token limit: initialize prompt
-                logger.info(f'Exceeded max token limit. Initialize prompt.')
+            except Exception as e:
+                # exceed max token limit or other API errors: initialize prompt
+                logger.info(f'API request failed: {str(e)}. Initialize prompt.')
 
                 self.full_prompt['user_messages'].extend(self.current_prompt['user_messages'][:-1])
                 self.full_prompt['assistant_messages'].extend(self.current_prompt['assistant_messages'])

@@ -7,5 +7,5 @@ setup(
    author='greenmon',
    author_email='greenmon@kaist.ac.kr',
    packages=['droidagent'],
-   install_requires=['openai'], 
+   install_requires=['google-generativeai'], 
 )

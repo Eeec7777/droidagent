@@ -30,7 +30,22 @@ DroidAgent requires ADB (Android debugging bridge) and several Python libraries 
 
 * Android device connected or emulator running
 * DroidAgent uses the slightly modified version of [DroidBot](https://github.com/coinse/droidbot) (included as submodule)
-* OpenAI key: rename `.env.example` to `.env` and add your own OpenAI API key
+* Gemini API key: rename `.env.example` to `.env` and add your own Gemini API key
+
+### API Configuration
+This project has been updated to use **Google's Gemini 2.5 Flash** instead of OpenAI. Make sure to:
+
+1. Get your Gemini API key from [Google AI Studio](https://ai.google.dev/gemini-api/docs/quickstart?hl=zh-tw)
+2. Create a `.env` file in the root directory with:
+   ```
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+### Supported Models
+- **Default**: `gemini-2.5-flash` (fastest and most efficient)
+- **Available**: `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-pro`
+
+All components (Actor, Observer, Planner, Reflector) are configured to use Gemini 2.5 Flash by default.
 
 
 ### Clone & Install Dependencies

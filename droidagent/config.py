@@ -7,9 +7,12 @@ from .utils.activity_name_manager import ActivityNameManager
 
 file_dir = os.path.dirname(os.path.realpath(__file__))
 
-GPT_4 = 'gpt-4-0613'
-GPT_3_5 = 'gpt-3.5-turbo-0613'
-GPT_3_5_16k = 'gpt-3.5-turbo-16k-0613'
+# Gemini models
+GEMINI_PRO = 'gemini-pro'
+GEMINI_PRO_VISION = 'gemini-pro-vision'
+GEMINI_1_5_PRO = 'gemini-1.5-pro'
+GEMINI_1_5_FLASH = 'gemini-1.5-flash'
+GEMINI_2_5_FLASH = 'gemini-2.5-flash'
 
 class Persona:
     def __init__(self, persona_dict):
@@ -61,11 +64,11 @@ class AgentConfig:
         # persona info
         self.persona = None
 
-        self.actor_model = GPT_3_5_16k
-        self.observer_model = GPT_3_5_16k
-        self.planner_model = GPT_4
-        self.reflector_model = GPT_4
-        self.knowledge_summary_model = GPT_3_5
+        self.actor_model = GEMINI_2_5_FLASH
+        self.observer_model = GEMINI_2_5_FLASH
+        self.planner_model = GEMINI_2_5_FLASH
+        self.reflector_model = GEMINI_2_5_FLASH
+        self.knowledge_summary_model = GEMINI_2_5_FLASH
 
     @cached_property
     def persona_name(self):
@@ -116,10 +119,10 @@ class AgentConfig:
         self.persona = Persona(saved_dict['persona'])
     
     def set_debug_mode(self):
-        self.actor_model = GPT_3_5_16k
-        self.observer_model = GPT_3_5_16k
-        self.planner_model = GPT_3_5_16k
-        self.reflector_model = GPT_3_5_16k
+        self.actor_model = GEMINI_2_5_FLASH
+        self.observer_model = GEMINI_2_5_FLASH
+        self.planner_model = GEMINI_2_5_FLASH
+        self.reflector_model = GEMINI_2_5_FLASH
 
     def set_app(self, app):
         self.app_name = app.apk.get_app_name()
