@@ -58,7 +58,6 @@ def main():
         ("requests", "- HTTP library"),
         ("dotenv", "- Environment variable management"),
         ("google.genai", "- Google Gemini API"),
-        ("timeout_decorator", "- Timeout functionality"),
         ("chromadb", "- Vector database"),
         ("pandas", "- Data analysis"),
         ("friendlywords", "- Word generation"),

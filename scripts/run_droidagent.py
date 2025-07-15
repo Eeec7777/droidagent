@@ -6,8 +6,6 @@ import argparse
 import subprocess
 import shlex
 
-from timeout_decorator import timeout
-
 from droidbot.device import Device
 from droidbot.app import App
 from droidbot.input_event import IntentEvent, KeyEvent
@@ -45,9 +43,9 @@ def load_profile(profile_id):
     return profile
 
 
-@timeout(7200)
 def main(device, app, persona, debug=False):
     start_time = time.time()
+    timeout_duration = 7200  # 2 hours in seconds
     agent = TaskBasedAgent(output_dir, app=app, persona=persona, debug_mode=debug)
     device_manager = DeviceManager(device, app, output_dir=output_dir)
     agent.set_current_gui_state(device_manager.current_state)
@@ -57,6 +55,14 @@ def main(device, app, persona, debug=False):
     loading_wait_count = 0
 
     while True:
+        # Check for timeout
+        if time.time() - start_time > timeout_duration:
+            print(f'Timeout reached ({timeout_duration} seconds)')
+            device.uninstall_app(app)
+            device.disconnect()
+            device.tear_down()
+            exit(0)
+        
         if agent.step_count > MAX_STEP:
             print(f'Maximum number of steps reached ({agent.step_count})')
             device.uninstall_app(app)
@@ -65,7 +71,9 @@ def main(device, app, persona, debug=False):
             exit(0)
 
         if agent.step_count % 10 == 0:
-            print(f'Time left: {round(((7200 - (time.time() - start_time)) / 60), 2)} min')
+            elapsed_time = time.time() - start_time
+            remaining_time = timeout_duration - elapsed_time
+            print(f'Time left: {round(remaining_time / 60, 2)} min')
 
         if is_loading_state(device_manager.current_state):
             loading_wait_count += 1
