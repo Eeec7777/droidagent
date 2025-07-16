@@ -215,7 +215,47 @@ if __name__ == "__main__":
         }, f, indent=4)
     
     device.install_app(app)
-    device.start_app(app)
+    
+    # Use instrumentation command to start app instead of normal start
+    # Get the instrumentation command for the app
+    INSTRUMENTATION_COMMANDS = {
+        "a2dp": "adb shell am instrument a2dp.Vol/a2dp.Vol.test.JacocoInstrumentation",
+        "activitydiary": "adb shell am instrument de.rampro.activitydiary/de.rampro.activitydiary.ui.main.test.JacocoInstrumentation",
+        "AnyCut": "adb shell am instrument com.example.anycut/com.example.anycut.test.JacocoInstrumentation",
+        "BatteryDog": "adb shell am instrument net.sf.andbatdog.batterydog/net.sf.andbatdog.batterydog.test.JacocoInstrumentation",
+        "Bierverkostung": "adb shell am instrument de.retujo.bierverkostung/de.retujo.bierverkostung.test.JacocoInstrumentation",
+        "BudgetWatch": "adb shell am instrument protect.budgetwatch/protect.budgetwatch.test.JacocoInstrumentation",
+        "CalorieScope": "adb shell am instrument org.dynamicsoft.caloriescope/org.dynamicsoft.caloriescope.activities.test.JacocoInstrumentation",
+        "CarReport": "adb shell am instrument me.kuehle.carreport/me.kuehle.carreport.gui.test.JacocoInstrumentation",
+        "chubbyclick": "adb shell am instrument agrigolo.chubbyclick/agrigolo.chubbyclick.test.JacocoInstrumentation",
+        "Diaguard": "adb shell am instrument com.faltenreich.diaguard.beta/com.faltenreich.diaguard.feature.navigation.test.JacocoInstrumentation",
+        "FruitRadar": "adb shell am instrument eu.quelltext.mundraub/eu.quelltext.mundraub.activities.test.JacocoInstrumentation",
+        "getflow": "adb shell am instrument org.wentura.getflow/.test.JacocoInstrumentation",
+        "good-weather": "adb shell am instrument org.asdtm.goodweather/.test.JacocoInstrumentation",
+        "HourlyReminder": "adb shell am instrument com.github.axet.hourlyreminder/com.github.axet.hourlyreminder.test.JacocoInstrumentation",
+        "mileage": "adb shell am instrument com.evancharlton.mileage/com.evancharlton.mileage.test.JacocoInstrumentation",
+        "MunchLife": "adb shell am instrument info.bpace.munchlife/info.bpace.munchlife.test.JacocoInstrumentation",
+        "omni-note": "adb shell am instrument it.feio.android.omninotes.alpha/it.feio.android.omninotes.test.JacocoInstrumentation",
+        "OpenMoneyTracker": "adb shell am instrument com.blogspot.e_kanivets.moneytracker/com.blogspot.e_kanivets.moneytracker.test.JacocoInstrumentation",
+        "RentalCalc": "adb shell am instrument protect.rentalcalc/protect.rentalcalc.test.JacocoInstrumentation",
+        "tippytipper": "adb shell am instrument net.mandaria.tippytipper/net.mandaria.tippytipper.activities.test.JacocoInstrumentation"
+    }
+    
+    # Use instrumentation command if available, otherwise use normal start
+    if args.app in INSTRUMENTATION_COMMANDS:
+        cmd = INSTRUMENTATION_COMMANDS[args.app]
+        print(f"Starting app with instrumentation: {cmd}")
+        
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Warning: Instrumentation command failed: {result.stderr}")
+            print("Falling back to normal app start...")
+            device.start_app(app)
+        else:
+            print("Instrumentation started successfully")
+    else:
+        print(f"No instrumentation command found for {args.app}, using normal start")
+        device.start_app(app)
 
     print('Waiting 10 secs for the app to be ready...')
     print('Output directory:', os.path.abspath(output_dir))

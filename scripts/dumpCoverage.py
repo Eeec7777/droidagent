@@ -130,9 +130,9 @@ droidagent_thread.daemon = True
 droidagent_thread.start()
 
 # Start instrumented app in background
-instrumented_thread = threading.Thread(target=start_instrumented_app)
-instrumented_thread.daemon = True
-instrumented_thread.start()
+# instrumented_thread = threading.Thread(target=start_instrumented_app)
+# instrumented_thread.daemon = True
+# instrumented_thread.start()
 
 # Wait a bit for both to start
 time.sleep(40)

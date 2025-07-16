@@ -19,6 +19,40 @@ MAX_RESTART = 5
 
 num_steps_outside = 0
 
+def try_instrumentation_start(device_manager, agent, events):
+    """
+    Try to start app using instrumentation command
+    Returns True if successful, False otherwise
+    """
+    instrumentation_intent = device_manager.app.get_instrumentation_start_intent()
+    if instrumentation_intent is None:
+        return False
+    
+    # Extract the command from the intent suffix
+    cmd = instrumentation_intent.suffix
+    print(f"Trying to restart app with instrumentation: {cmd}")
+    
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            print("Instrumentation restart successful")
+            # Wait a bit for the app to start
+            time.sleep(2)
+            device_manager.fetch_device_state()
+            
+            # Check if the app is now in the foreground
+            if device_manager.get_app_activity_depth() == 0:
+                return True
+            else:
+                print("App not in foreground after instrumentation start")
+                return False
+        else:
+            print(f"Instrumentation restart failed: {result.stderr}")
+            return False
+    except Exception as e:
+        print(f"Exception during instrumentation restart: {e}")
+        return False
+
 class ExternalAction:
     def __init__(self, description, events):
         self.description = description
@@ -153,6 +187,14 @@ def recover_activity_stack(device_manager, agent, events=[]):
     
     # App is not in the activity stack (e.g., mistakenly closed the app)
     if device_manager.get_app_activity_depth() < 0 or 'leakcanary.internal.activity' in device_manager.current_state.foreground_activity: 
+        # Try instrumentation start first
+        if try_instrumentation_start(device_manager, agent, events):
+            agent.inject_action_entry(ExternalAction(f'Open the app again using instrumentation because the previous action led to closing the app', events), 'ACTION')
+            AppState.clear_temporary_message()
+            num_steps_outside = 0
+            return
+        
+        # Fall back to normal Intent start
         start_app_intent = device_manager.app.get_start_intent()
         reopen_event = IntentEvent(intent=start_app_intent)
 
@@ -193,7 +235,14 @@ def recover_activity_stack(device_manager, agent, events=[]):
             num_steps_outside = 0
             return
 
-    # Try reopen
+    # Try reopen - first try instrumentation
+    if try_instrumentation_start(device_manager, agent, events):
+        agent.inject_action_entry(ExternalAction(f'Reopen the app using instrumentation because you stayed on the pages not belonging to the target app for too long', events), 'ACTION')
+        AppState.clear_temporary_message()
+        num_steps_outside = 0
+        return
+    
+    # Fall back to normal Intent reopen
     start_app_intent = device_manager.app.get_start_intent()
     reopen_event = IntentEvent(intent=start_app_intent)
     event_dict = device_manager.send_event_to_device(reopen_event)
@@ -240,6 +289,11 @@ def recover_activity_stack(device_manager, agent, events=[]):
             event_dict = device_manager.send_event_to_device(stop_event)
             events.append(event_dict)
             
+            # Try instrumentation start first
+            if try_instrumentation_start(device_manager, agent, events):
+                break
+            
+            # Fall back to normal Intent start
             start_app_intent = device_manager.app.get_start_intent()
             restart_event = IntentEvent(intent=start_app_intent)
             event_dict = device_manager.send_event_to_device(restart_event)
