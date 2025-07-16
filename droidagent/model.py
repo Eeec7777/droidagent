@@ -157,11 +157,18 @@ def get_next_assistant_message(system_message, user_messages, assistant_messages
             logger.info(f'Sending request to Gemini API (attempt {retry_count + 1}/{MAX_RETRY})')
             
             # Configure generation settings
-            config = types.GenerateContentConfig(
-                temperature=TEMPERATURE,
-                max_output_tokens=max_tokens,
-                thinking_config=types.ThinkingConfig(thinking_budget=0)  # Disable thinking for faster response
-            )
+            config_params = {
+                'temperature': TEMPERATURE,
+                'max_output_tokens': max_tokens,
+            }
+            
+            # Only add thinking_config for newer models that support it
+            # Currently only Gemini 2.5 Flash and newer versions support thinking_config
+            thinking_supported_models = ["gemini-2.5-flash", "gemini-2.0-flash-exp"]
+            if model in thinking_supported_models:
+                config_params['thinking_config'] = types.ThinkingConfig(thinking_budget=0)  # Disable thinking for faster response
+            
+            config = types.GenerateContentConfig(**config_params)
             
             # Generate content using the new API
             response = client.models.generate_content(
@@ -188,6 +195,20 @@ def get_next_assistant_message(system_message, user_messages, assistant_messages
 
     # Record usage and response time
     if hasattr(response, 'usage_metadata'):
+        usage = response.usage_metadata
+        
+        # Extract token counts using the correct attribute names
+        input_tokens = getattr(usage, 'prompt_token_count', 0)
+        output_tokens = getattr(usage, 'candidates_token_count', 0)
+        total_tokens = getattr(usage, 'total_token_count', input_tokens + output_tokens)
+        
+        print(f"\n📊 Token Usage - Model: {model}")
+        print(f"   Input tokens: {input_tokens:,}")
+        print(f"   Output tokens: {output_tokens:,}")
+        print(f"   Total tokens: {total_tokens:,}")
+        print(f"   Response time: {time.time() - start_time:.2f}s")
+        print()
+        
         APIUsageManager.record_usage(model, response.usage_metadata)
     APIUsageManager.record_response_time(model, time.time() - start_time)
 
