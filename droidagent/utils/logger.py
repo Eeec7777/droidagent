@@ -11,7 +11,7 @@ class Logger:
             self.initialize(module_name)
 
     def initialize_if_needed(self):
-        if not self.initialized:
+        if not self.initialized and agent_config.agent_output_dir is not None:
             self.initialize(self.module_name)
 
     def initialize(self, module_name):
@@ -35,16 +35,28 @@ class Logger:
 
     def debug(self, msg):
         self.initialize_if_needed()
-        self.logger.debug(msg)
+        if self.initialized:
+            self.logger.debug(msg)
+        else:
+            print(f"DEBUG - {self.module_name}: {msg}")
 
     def info(self, msg):
         self.initialize_if_needed()
-        self.logger.info(msg)
+        if self.initialized:
+            self.logger.info(msg)
+        else:
+            print(f"INFO - {self.module_name}: {msg}")
 
     def warning(self, msg):
         self.initialize_if_needed()
-        self.logger.warning(msg)
+        if self.initialized:
+            self.logger.warning(msg)
+        else:
+            print(f"WARNING - {self.module_name}: {msg}")
 
     def error(self, msg):
         self.initialize_if_needed()
-        self.logger.error(msg)
+        if self.initialized:
+            self.logger.error(msg)
+        else:
+            print(f"ERROR - {self.module_name}: {msg}")

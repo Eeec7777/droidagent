@@ -49,8 +49,8 @@ class WorkingMemory:
             })
 
         return {
-            'task': self.task.summary,
-            'task_end_condition': self.task.end_condition,
+            'task': self.task.summary if self.task else None,
+            'task_end_condition': self.task.end_condition if self.task else None,
             'working_memory': task_execution_entries
         }
 

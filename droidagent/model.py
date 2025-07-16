@@ -3,6 +3,7 @@ from google.genai import types
 import time
 import os
 import json
+import warnings
 from dotenv import load_dotenv 
 
 from .config import agent_config
@@ -10,15 +11,30 @@ from .utils.logger import Logger
 
 load_dotenv()
 
-# Configure Gemini API
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+logger = Logger(__name__)
+
+# Disable telemetry to avoid capture() errors
+os.environ['GOOGLE_GENAI_DISABLE_TELEMETRY'] = '1'
+os.environ['GOOGLE_ANALYTICS_DISABLED'] = '1'
+os.environ['GOOGLE_CLOUD_DISABLE_TELEMETRY'] = '1'
+
+# Suppress telemetry warnings
+warnings.filterwarnings('ignore', message='.*telemetry.*')
+
+# Configure Gemini API with error handling
+try:
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    logger.info("Gemini client initialized successfully")
+except Exception as e:
+    # If there's an error during client initialization, try without telemetry
+    logger.warning(f"Error initializing Gemini client: {e}")
+    logger.info("Attempting to initialize without telemetry...")
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 TIMEOUT = 60
 MAX_TOKENS = 8000
 MAX_RETRY = 1000
 TEMPERATURE = 0.6
-
-logger = Logger(__name__)
 
 class APIUsageManager:
     usage = {}
@@ -115,9 +131,31 @@ def get_next_assistant_message(system_message, user_messages, assistant_messages
     # Combine all parts into a single prompt
     full_prompt = "\n\n".join(conversation_parts)
     
+    # Handle function calls
+    if functions and function_call_option != "none":
+        # If functions are provided, add function call instructions
+        function_descriptions = []
+        for func in functions:
+            func_info = func.get('function', {})
+            name = func_info.get('name', '')
+            description = func_info.get('description', '')
+            parameters = func_info.get('parameters', {})
+            
+            function_descriptions.append(f"Function: {name}")
+            function_descriptions.append(f"Description: {description}")
+            if parameters.get('properties'):
+                function_descriptions.append(f"Parameters: {parameters}")
+        
+        function_prompt = "\n\nAvailable functions:\n" + "\n".join(function_descriptions)
+        function_prompt += "\n\nTo call a function, respond with JSON format: {\"function\": {\"name\": \"function_name\", \"arguments\": {\"param1\": \"value1\", \"param2\": \"value2\"}}}"
+        
+        full_prompt += function_prompt
+    
     response = None
-    for _ in range(MAX_RETRY):
+    for retry_count in range(MAX_RETRY):
         try:
+            logger.info(f'Sending request to Gemini API (attempt {retry_count + 1}/{MAX_RETRY})')
+            
             # Configure generation settings
             config = types.GenerateContentConfig(
                 temperature=TEMPERATURE,
@@ -132,16 +170,20 @@ def get_next_assistant_message(system_message, user_messages, assistant_messages
                 config=config
             )
             
+            logger.info(f'Received response from Gemini API successfully')
             break
             
         except Exception as e:
-            logger.info(f'Google GenAI API request errored: {str(e)}. Retrying...')
-            time.sleep(3)
+            logger.warning(f'Google GenAI API request errored (attempt {retry_count + 1}/{MAX_RETRY}): {str(e)}')
+            if retry_count < MAX_RETRY - 1:
+                logger.info('Retrying in 3 seconds...')
+                time.sleep(3)
             continue
         except KeyboardInterrupt as e:
             raise e
 
     if response is None:
+        logger.error('Google GenAI API request failed after all retries')
         raise TimeoutError('Google GenAI API request errored multiple times')
 
     # Record usage and response time
@@ -150,13 +192,48 @@ def get_next_assistant_message(system_message, user_messages, assistant_messages
     APIUsageManager.record_response_time(model, time.time() - start_time)
 
     # Extract response text
+    response_text = ""
     if hasattr(response, 'text'):
-        return response.text.strip()
+        response_text = response.text.strip()
     elif hasattr(response, 'candidates') and len(response.candidates) > 0:
         candidate = response.candidates[0]
         if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-            return candidate.content.parts[0].text.strip()
+            response_text = candidate.content.parts[0].text.strip()
     
-    return "No response generated"
+    if not response_text:
+        return "No response generated"
+    
+    # Check if response is a function call
+    if functions and function_call_option != "none":
+        # Try to parse JSON function call
+        try:
+            import json
+            # Look for JSON in the response
+            if response_text.startswith('{') and response_text.endswith('}'):
+                parsed_response = json.loads(response_text)
+                if 'function' in parsed_response:
+                    # Return function call format expected by the code
+                    return {
+                        'id': f'call_{int(time.time() * 1000)}',
+                        'function': parsed_response['function']
+                    }
+        except (json.JSONDecodeError, KeyError):
+            # If JSON parsing fails, check for function call in text
+            if "function" in response_text.lower() and "{" in response_text:
+                # Try to extract JSON from the response
+                import re
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        parsed_response = json.loads(json_match.group())
+                        if 'function' in parsed_response:
+                            return {
+                                'id': f'call_{int(time.time() * 1000)}',
+                                'function': parsed_response['function']
+                            }
+                    except json.JSONDecodeError:
+                        pass
+    
+    return response_text
 
     

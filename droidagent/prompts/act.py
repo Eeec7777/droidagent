@@ -102,11 +102,16 @@ Based on your reasoning, select the next action or end the task by calling one o
         function_params.append(param_name)
 
     try:
-        function_args = json.loads(response['function']['arguments'])
-    except json.decoder.JSONDecodeError:
+        # Check if response is already a dict (from our function call parsing)
+        if isinstance(response, dict) and 'function' in response:
+            function_args = response['function'].get('arguments', {})
+        else:
+            # Try to parse as JSON string
+            function_args = json.loads(response['function']['arguments'])
+    except (json.decoder.JSONDecodeError, TypeError, KeyError):
         error_message = {
-            'tool_call_id': response['id'],
-            'name': respone['function']['name'],
+            'tool_call_id': response.get('id', 'unknown'),
+            'name': response.get('function', {}).get('name', 'unknown'),
             'return_value': json.dumps({
                 'error_message': f'You did not provide the suitable parameters for the function call. Please provide the following parameters: {function_params}'
             })
@@ -120,7 +125,7 @@ Based on your reasoning, select the next action or end the task by calling one o
         if arg_value is None:
             error_message = {
                 'tool_call_id': response['id'],
-                'name': respone['function']['name'],
+                'name': response['function']['name'],
                 'return_value': json.dumps({
                     'error_message': f'You did not provide the required parameter "{param_name}".'
                 })
@@ -132,7 +137,7 @@ Based on your reasoning, select the next action or end the task by calling one o
             except ValueError:
                 error_message = {
                     'tool_call_id': response['id'],
-                    'name': respone['function']['name'],
+                    'name': response['function']['name'],
                     'return_value': json.dumps({
                         'error_message': f'The value of the parameter "{param_name}" should be an integer.'
                     })

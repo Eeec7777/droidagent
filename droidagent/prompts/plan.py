@@ -3,18 +3,26 @@ from ..app_state import AppState
 from ..model import get_next_assistant_message, zip_messages
 from ..functions.possible_actions import *
 from ..utils.stringutil import *
+from ..utils.logger import Logger
 from .act import prompt_text_input, initialize_possible_actions
 
 QUERY_COUNT = 3
+
+logger = Logger(__name__)
 
 """
 1. Persona-based exploration w/ custom testing objective
 """
 def prompt_new_task(memory, prompt_recorder=None):
+    logger.info("Starting prompt_new_task...")
+    
     # TODO: refer to spatial memory - what is the current page? what are the widgets in the current page?
     # TODO: refer to temporal memory - what are the memorable tasks so far?
     unvisited_pages = list(set(AppState.activities) - set(AppState.visited_activities.keys()))
-
+    
+    logger.info(f"Unvisited pages: {unvisited_pages}")
+    logger.info(f"Current activity: {AppState.current_activity}")
+    
     system_message = f'''
 You are a helpful task planner for using an Android mobile application named {agent_config.app_name}. You are planning for a person named "{agent_config.persona_name}" with the following profile:
 {agent_config.persona_profile}
@@ -75,8 +83,15 @@ Rough plan for the task in {agent_config.persona_name}'s perspective: <1 sentenc
 
     # Let the planner select the first action
     possible_action_functions, function_map = initialize_possible_actions()
-
-    assistant_messages.append(get_next_assistant_message(system_message, user_messages, assistant_messages, model=agent_config.planner_model, functions=list(possible_action_functions.values()), function_call_option="none"))
+    
+    logger.info("Sending request to Gemini API for task planning...")
+    
+    try:
+        assistant_messages.append(get_next_assistant_message(system_message, user_messages, assistant_messages, model=agent_config.planner_model, functions=list(possible_action_functions.values()), function_call_option="none"))
+        logger.info("Received response from Gemini API for task planning")
+    except Exception as e:
+        logger.error(f"Failed to get response from Gemini API: {str(e)}")
+        return None, None, None, None
 
     def parse_answer(answer):
         task = None
@@ -95,6 +110,9 @@ Rough plan for the task in {agent_config.persona_name}'s perspective: <1 sentenc
         return task, task_end_condition, plan
 
     task, end_condition, plan = parse_answer(assistant_messages[-1])
+    
+    logger.info(f"Parsed task: {task}")
+    logger.info(f"Parsed end condition: {end_condition}")
 
     valid_task = False
     for i in range(QUERY_COUNT):
@@ -140,15 +158,19 @@ Good. Now, based on your previous answer, execute the first action (by calling a
 
     assistant_messages.append(get_next_assistant_message(system_message, user_messages, assistant_messages, model=agent_config.actor_model, functions=list(possible_action_functions.values())))
     response = assistant_messages[-1]
+    
+    logger.info(f"Function call response: {response}")
+    logger.info(f"Function call response type: {type(response)}")
 
     if isinstance(response, str): # retry if model doesn't do function call
+        logger.warning(f"Model returned string instead of function call: {response}")
         error_message = f'Call one of the given function instead of text answers.'
         return prompt_action_function(memory, system_message, user_messages, assistant_messages, possible_action_functions, function_map, error_message=error_message, prompt_recorder=prompt_recorder, query_count=query_count-1)
 
     if response['function']['name'] not in possible_action_functions: # retry if model doesn't do a right function call
         error_message = {
             'tool_call_id': response['id'],
-            'name': respone['function']['name'],
+            'name': response['function']['name'],
             'return_value': json.dumps({
                 'error_message': f'You need to call a function among the given functions to select the next action or end the task for {agent_config.persona_name}. {response["function"]["name"]} is not a valid function name.'
             })
@@ -162,11 +184,16 @@ Good. Now, based on your previous answer, execute the first action (by calling a
         function_params.append(param_name)
 
     try:
-        function_args = json.loads(response['function']['arguments'])
-    except json.decoder.JSONDecodeError:
+        # Check if response is already a dict (from our function call parsing)
+        if isinstance(response, dict) and 'function' in response:
+            function_args = response['function'].get('arguments', {})
+        else:
+            # Try to parse as JSON string
+            function_args = json.loads(response['function']['arguments'])
+    except (json.decoder.JSONDecodeError, TypeError, KeyError):
         error_message = {
-            'tool_call_id': response['id'],
-            'name': respone['function']['name'],
+            'tool_call_id': response.get('id', 'unknown'),
+            'name': response.get('function', {}).get('name', 'unknown'),
             'return_value': json.dumps({
                 'error_message': f'You did not provide the suitable parameters for the function call. Please provide the following parameters: {function_params}'
             })
@@ -180,7 +207,7 @@ Good. Now, based on your previous answer, execute the first action (by calling a
         if arg_value is None:
             error_message = {
                 'tool_call_id': response['id'],
-                'name': respone['function']['name'],
+                'name': response['function']['name'],
                 'return_value': json.dumps({
                     'error_message': f'You did not provide the required parameter "{param_name}".'
                 })
@@ -192,7 +219,7 @@ Good. Now, based on your previous answer, execute the first action (by calling a
             except ValueError:
                 error_message = {
                     'tool_call_id': response['id'],
-                    'name': respone['function']['name'],
+                    'name': response['function']['name'],
                     'return_value': json.dumps({
                         'error_message': f'The value of the parameter "{param_name}" should be an integer.'
                     })

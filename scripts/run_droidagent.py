@@ -6,6 +6,11 @@ import argparse
 import subprocess
 import shlex
 
+# Disable Google GenAI telemetry to avoid capture() errors
+os.environ['GOOGLE_GENAI_DISABLE_TELEMETRY'] = '1'
+os.environ['GOOGLE_ANALYTICS_DISABLED'] = '1'
+os.environ['GOOGLE_CLOUD_DISABLE_TELEMETRY'] = '1'
+
 from droidbot.device import Device
 from droidbot.app import App
 from droidbot.input_event import IntentEvent, KeyEvent

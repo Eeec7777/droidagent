@@ -1,5 +1,6 @@
 from collections import defaultdict
 import chromadb
+from chromadb.utils import embedding_functions
 import time
 import os
 import re
@@ -11,6 +12,11 @@ from .spatial_memory import SpatialMemory
 
 
 class PersistentStorageManager:
+    # Use a simple sentence transformer embedding function that's more reliable
+    embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name="all-MiniLM-L6-v2"
+    )
+    
     chroma_client = chromadb.Client()
     active_storages = {
         'primary': None,
@@ -29,7 +35,10 @@ class PersistentStorageManager:
         except ValueError:
             pass
 
-        cls.active_storages[storage_id] = cls.chroma_client.create_collection(name=storage_id)
+        cls.active_storages[storage_id] = cls.chroma_client.create_collection(
+            name=storage_id,
+            embedding_function=cls.embedding_function
+        )
 
         return cls.active_storages[storage_id]
 
