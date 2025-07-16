@@ -6,6 +6,52 @@ import argparse
 import subprocess
 import shlex
 
+# Fix Windows encoding issues
+import sys
+import locale
+
+# Set UTF-8 encoding for Windows
+if sys.platform == 'win32':
+    # Set console encoding to UTF-8
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    
+    # Set default encoding for file operations
+    try:
+        import _locale
+        _locale._getdefaultlocale = lambda: (None, 'utf-8')
+    except:
+        pass
+    
+    # Set environment encoding
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    
+    # Fix JSON loading for androguard
+    import json
+    import builtins
+    original_open = builtins.open
+    def utf8_open(file, mode='r', **kwargs):
+        if 'encoding' not in kwargs and 'b' not in mode:
+            kwargs['encoding'] = 'utf-8'
+        return original_open(file, mode, **kwargs)
+    builtins.open = utf8_open
+    
+    # Fix json.load to handle encoding issues
+    original_json_load = json.load
+    def safe_json_load(fp, **kwargs):
+        try:
+            return original_json_load(fp, **kwargs)
+        except UnicodeDecodeError:
+            # If there's a unicode error, try to read as utf-8
+            fp.seek(0)
+            content = fp.read()
+            if isinstance(content, bytes):
+                content = content.decode('utf-8', errors='ignore')
+            return json.loads(content, **kwargs)
+    json.load = safe_json_load
+
+
 # Disable Google GenAI telemetry to avoid capture() errors
 os.environ['GOOGLE_GENAI_DISABLE_TELEMETRY'] = '1'
 os.environ['GOOGLE_ANALYTICS_DISABLED'] = '1'

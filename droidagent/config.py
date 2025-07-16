@@ -65,11 +65,11 @@ class AgentConfig:
         # persona info
         self.persona = None
 
-        self.actor_model = GEMINI_2_0_FLASH
-        self.observer_model = GEMINI_2_0_FLASH
-        self.planner_model = GEMINI_2_0_FLASH
-        self.reflector_model = GEMINI_2_0_FLASH
-        self.knowledge_summary_model = GEMINI_2_0_FLASH
+        self.actor_model = GEMINI_2_5_FLASH
+        self.observer_model = GEMINI_2_5_FLASH
+        self.planner_model = GEMINI_2_5_FLASH
+        self.reflector_model = GEMINI_2_5_FLASH
+        self.knowledge_summary_model = GEMINI_2_5_FLASH
 
     @cached_property
     def persona_name(self):
@@ -120,10 +120,10 @@ class AgentConfig:
         self.persona = Persona(saved_dict['persona'])
     
     def set_debug_mode(self):
-        self.actor_model = GEMINI_2_0_FLASH
-        self.observer_model = GEMINI_2_0_FLASH
-        self.planner_model = GEMINI_2_0_FLASH
-        self.reflector_model = GEMINI_2_0_FLASH
+        self.actor_model = GEMINI_2_5_FLASH
+        self.observer_model = GEMINI_2_5_FLASH
+        self.planner_model = GEMINI_2_5_FLASH
+        self.reflector_model = GEMINI_2_5_FLASH
 
     def set_app(self, app):
         self.app_name = app.apk.get_app_name()

@@ -170,6 +170,9 @@ def get_next_assistant_message(system_message, user_messages, assistant_messages
             
             config = types.GenerateContentConfig(**config_params)
             
+            # Add 1 second delay before API request
+            time.sleep(1)
+            
             # Generate content using the new API
             response = client.models.generate_content(
                 model=model,
