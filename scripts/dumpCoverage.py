@@ -13,13 +13,28 @@ def run_droidagent():
     print("Starting DroidAgent...")
     subprocess.call("python run_droidagent.py --app tippytipper --output_dir ../output/tippytipper --is_emulator", shell=True)
 
+# Start instrumented app
+def start_instrumented_app():
+    print("Starting instrumented app...")
+    # Wait for DroidAgent to install the app first
+    time.sleep(30)
+    
+    # Start the instrumented app using am instrument
+    print("Launching instrumented tippytipper app...")
+    subprocess.call("adb shell am instrument net.mandaria.tippytipper/net.mandaria.tippytipper.activities.test.JacocoInstrumentation", shell=True)
+
 # Start DroidAgent in background
 droidagent_thread = threading.Thread(target=run_droidagent)
 droidagent_thread.daemon = True
 droidagent_thread.start()
 
-# Wait a bit for DroidAgent to start
-time.sleep(10)
+# Start instrumented app in background
+instrumented_thread = threading.Thread(target=start_instrumented_app)
+instrumented_thread.daemon = True
+instrumented_thread.start()
+
+# Wait a bit for both to start
+time.sleep(40)
 
 print("Starting coverage collection...")
 i = 0
